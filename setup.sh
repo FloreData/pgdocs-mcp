@@ -1,7 +1,12 @@
 #!/bin/bash
-# Quick setup script for pgdocs MCP (PostgreSQL 18 + PostGIS)
+# Setup for pgdocs MCP (PostgreSQL 18 + PostGIS).
+# Creates a project-local virtualenv and does everything inside it —
+# it never touches your global/system Python.
 
-set -e
+set -euo pipefail
+
+# Run from the script's own directory, wherever it's invoked from.
+cd "$(dirname "$0")"
 
 echo "🔧 pgdocs MCP Setup"
 echo "==================="
@@ -10,34 +15,38 @@ if ! command -v python3 &> /dev/null; then
     echo "❌ Python 3 not found. Please install Python 3.10+"
     exit 1
 fi
+echo "✓ Found Python $(python3 --version | cut -d' ' -f2)"
 
-PYTHON_VERSION=$(python3 --version | cut -d' ' -f2 | cut -d'.' -f1-2)
-echo "✓ Found Python $PYTHON_VERSION"
+VENV=".venv"
+if [ ! -d "$VENV" ]; then
+    echo "📦 Creating virtualenv at ./$VENV ..."
+    python3 -m venv "$VENV"
+fi
+PY="$PWD/$VENV/bin/python"
 
 echo ""
-echo "📦 Installing dependencies..."
-pip install -e ".[scrape]" -q
+echo "📦 Installing dependencies into ./$VENV ..."
+"$PY" -m pip install --upgrade pip -q
+"$PY" -m pip install -e ".[scrape]" -q
 
 if [ ! -d "docs" ] || [ -z "$(ls -A docs 2>/dev/null)" ]; then
     echo ""
-    echo "📚 Scraping PostgreSQL 18 + PostGIS docs (this takes a few minutes)..."
-    python scrape_docs.py
+    echo "📚 Scraping PostgreSQL 18 + PostGIS docs (a few minutes; resumable)..."
+    "$PY" scrape_docs.py
 else
     echo "✓ Documentation already exists ($(ls docs/*.md 2>/dev/null | wc -l | tr -d ' ') files)"
     echo "  (delete docs/ to force a fresh scrape)"
 fi
 
 echo ""
-echo "🧪 Testing installation..."
-python -c "from search_index import DocumentSearchIndex; from server import mcp; print('✓ All imports successful')"
+echo "🧪 Smoke test..."
+"$PY" -c "from search_index import DocumentSearchIndex; from server import mcp; print('✓ imports OK')"
 
 echo ""
 echo "✅ Setup complete!"
 echo ""
-echo "Next steps:"
-echo "1. Add to Claude Code:"
-echo "   claude mcp add pgdocs -- python $(pwd)/server.py"
+echo "Register with Claude Code (points at the venv's Python, so deps always resolve):"
 echo ""
-echo "2. Restart Claude Code"
+echo "   claude mcp add pgdocs -- \"$PY\" \"$PWD/server.py\""
 echo ""
-echo "3. Test with: /mcp"
+echo "Then restart Claude Code and check /mcp"

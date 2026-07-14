@@ -33,21 +33,20 @@ cd pgdocs-mcp
 ./setup.sh
 ```
 
-The script installs deps, scrapes both manuals (~5–10 min, resumable), runs a
-smoke test, and prints the registration command:
-
-```bash
-claude mcp add pgdocs -- python "$(pwd)/server.py"
-```
-
-Restart Claude Code and `pgdocs` appears under `/mcp`.
+`setup.sh` creates a project-local `.venv`, installs into it, scrapes both
+manuals (~5–10 min, resumable), smoke-tests, and prints a ready-to-paste
+registration command that points at the venv's Python. It never touches your
+global Python. Restart Claude Code afterwards and `pgdocs` appears under `/mcp`.
 
 ### Manual setup
 
+Same steps, by hand — still in a venv:
+
 ```bash
-pip install -e ".[scrape]"
-python scrape_docs.py     # ~5–10 min, resumable
-claude mcp add pgdocs -- python "$(pwd)/server.py"
+python3 -m venv .venv
+.venv/bin/pip install -e ".[scrape]"
+.venv/bin/python scrape_docs.py     # ~5–10 min, resumable
+claude mcp add pgdocs -- "$(pwd)/.venv/bin/python" "$(pwd)/server.py"
 ```
 
 ## Usage in Claude Code
@@ -72,14 +71,14 @@ Default `hybrid` is right for almost everything:
 ## Development
 
 ```bash
-pip install -e ".[dev]"
-pytest test_pgdocs.py -v
+.venv/bin/pip install -e ".[dev]"
+.venv/bin/pytest test_pgdocs.py -v
 
 # Re-scrape (resumable — already-scraped pages are skipped)
-python scrape_docs.py
+.venv/bin/python scrape_docs.py
 
 # Force-rebuild one page: delete the file and re-run
-rm docs/pg__sql-select.md && python scrape_docs.py
+rm docs/pg__sql-select.md && .venv/bin/python scrape_docs.py
 ```
 
 ## The scraped docs are not in this repo
